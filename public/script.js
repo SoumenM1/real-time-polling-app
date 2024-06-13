@@ -1,6 +1,7 @@
 document.addEventListener("DOMContentLoaded", () => {
     const socket = io();
     let pollChart;
+    let pollDataReceived = false;
 
     function initializePollChart(data) {
         const ctx = document.getElementById('poll-chart').getContext('2d');
@@ -25,20 +26,32 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         });
     }
-    
-    // Update poll chart
+
     function updatePollChart(data) {
+        pollChart.data.labels = data.options;
         pollChart.data.datasets[0].data = data.votes;
         pollChart.update();
     }
-    // Fetch current user info from the server
-    fetch('/api/user')
-        .then(response => response.json())
-        .then(user => {
-            const username = user.username;
 
-            // Handle initial poll data
-            socket.on('pollData', (data) => {
+    async function fetchUserData() {
+        try {
+            const response = await fetch('/api/user');
+            if (!response.ok) throw new Error('Network response was not ok');
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching user:', error);
+            window.location.href = '/login';
+        }
+    }
+
+    async function initialize() {
+        const user = await fetchUserData();
+        const username = user.username;
+
+        // Handle initial poll data
+        socket.on('pollData', (data) => {
+            pollDataReceived = true;
+            setTimeout(() => {
                 const pollOptions = document.getElementById('poll-options');
                 const pollResults = document.getElementById('poll-results');
                 
@@ -65,49 +78,51 @@ document.addEventListener("DOMContentLoaded", () => {
                 } else {
                     updatePollChart(data);
                 }
-            });
-
-            // Handle chat messages
-            socket.on('chatMessages', (messages) => {
-                const chatMessagesDiv = document.getElementById('chat-messages');
-                chatMessagesDiv.innerHTML = '';
-
-                messages.forEach(({username, message}) => {
-                    const messageDiv = document.createElement('div');
-                    messageDiv.textContent = `${username}: ${message}`;
-                    chatMessagesDiv.appendChild(messageDiv);
-                });
-            });
-
-            // Send chat message
-            document.getElementById('send-button').onclick = () => {
-                const chatInput = document.getElementById('chat-input');
-                const message = chatInput.value;
-                socket.emit('chatMessage', { username, message });
-                chatInput.value = '';
-            };
-
-            // Typing indicator
-            document.getElementById('chat-input').oninput = () => {
-                socket.emit('typing', username);
-            };
-
-            socket.on('typing', (username) => {
-                const typingIndicator = document.getElementById('typing-indicator');
-                typingIndicator.textContent = `${username} is typing...`;
-                setTimeout(() => {
-                    typingIndicator.textContent = '';
-                }, 1000);
-            });
-        })
-        .catch(error => {
-            console.error('Error fetching user:', error);
-            window.location.href = '/login';
+            }, 1000);
         });
 
-    // Ensure Socket.IO connection
-    socket.on('connect', () => {
+        // Handle chat messages
+        socket.on('chatMessages', (messages) => {
+            const chatMessagesDiv = document.getElementById('chat-messages');
+            chatMessagesDiv.innerHTML = '';
+
+            messages.forEach(({username, message}) => {
+                const messageDiv = document.createElement('div');
+                messageDiv.textContent = `${username}: ${message}`;
+                chatMessagesDiv.appendChild(messageDiv);
+            });
+        });
+
+        // Send chat message
+        document.getElementById('send-button').onclick = () => {
+            const chatInput = document.getElementById('chat-input');
+            const message = chatInput.value;
+            socket.emit('chatMessage', { username, message });
+            chatInput.value = '';
+        };
+
+        // Typing indicator
+        document.getElementById('chat-input').oninput = () => {
+            socket.emit('typing', username);
+        };
+
+        socket.on('typing', (username) => {
+            const typingIndicator = document.getElementById('typing-indicator');
+            typingIndicator.textContent = `${username} is typing...`;
+            setTimeout(() => {
+                typingIndicator.textContent = '';
+            }, 1000);
+        });
+    }
+
+    socket.on('connect', async() => {
         console.log('Connected to server');
+         await initialize();
+
+        // Request initial poll data on connection
+        if (!pollDataReceived) {
+            socket.emit('requestPollData');
+        }
     });
 
     socket.on('disconnect', () => {

@@ -27,7 +27,7 @@ app.use(session({
     secret: 'secret',
     resave: false,
     saveUninitialized: false,
-    store: MongoStore.create({ mongoUrl: 'mongodb://localhost:27017/pollingChatApp' })
+    store: MongoStore.create({ mongoUrl: 'mongodb+srv://maitysoumen8101:LySVMMzyiYkP8bXl@cluster0.reeifkp.mongodb.net/pollingChatApp?retryWrites=true&w=majority&appName=Cluster0' })
 }));
 
 // Authentication routes
@@ -38,10 +38,10 @@ app.post('/signup', async (req, res) => {
     try {
         await user.save();
         req.session.userId = user._id;
-        res.redirect('/');
+        return res.redirect('/login')
     } catch (error) {
-        res.redirect('/');
-        res.status(400).send('User already exists');
+       
+       return res.status(400).send('User already exists');
     }
 });
 
@@ -52,8 +52,8 @@ app.post('/login', async (req, res) => {
         req.session.userId = user._id;
         res.redirect('/');
     } else {
-        res.redirect('/');
-        res.status(400).send('Invalid credentials');
+    
+        return res.status(400).send('Invalid credentials');
     }
 });
 
@@ -67,7 +67,7 @@ const isAuthenticated = (req, res, next) => {
     if (req.session.userId) {
         next();
     } else {
-        res.redirect('/login');
+       return res.redirect('/login');
     }
 };
 
@@ -111,8 +111,10 @@ let chatMessages = [];
 io.on('connection', (socket) => {
     console.log('A user connected');
     
-    // Send initial poll and chat data
-    socket.emit('pollData', pollData);
+    // Send initial poll data upon request
+    socket.on('requestPollData', () => {
+        socket.emit('pollData', pollData);
+    });
     socket.emit('chatMessages', chatMessages);
 
     // Handle voting

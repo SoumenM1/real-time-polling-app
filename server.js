@@ -11,7 +11,7 @@ const server = http.createServer(app);
 const io = socketIo(server);
 
 // Connect to MongoDB
-mongoose.connect('mongodb://localhost:27017/pollingChatApp');
+mongoose.connect('mongodb+srv://maitysoumen8101:LySVMMzyiYkP8bXl@cluster0.reeifkp.mongodb.net/pollingChatApp?retryWrites=true&w=majority&appName=Cluster0');
 
 const UserSchema = new mongoose.Schema({
     username: { type: String, required: true, unique: true },
